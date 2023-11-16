@@ -33518,7 +33518,8 @@ async function initRShiny({
   if (!webRProxyHandle.ready) {
     throw new Error("webRProxyHandle is not ready");
   }
-  await webRProxyHandle.webRProxy.runRAsync('webr::install(c("shiny", "bs4Dash", "thematic", "waiter", "rstudioapi", "farver", "scales", "munsell", "colorspace"))');
+  await webRProxyHandle.webRProxy.runRAsync('webr::install("renv")');
+  await webRProxyHandle.webRProxy.runRAsync('webr::install(c("shiny", "bs4Dash", "thematic", "waiter", "rstudioapi", "farver", "scales", "munsell", "colorspace", "shiny.react", "shinyNextUI"))');
   await webRProxyHandle.webRProxy.runRAsync("library(shiny)");
   await webRProxyHandle.webRProxy.runRAsync("options(expressions=1000)");
   ensureOpenChannelListener2(webRProxyHandle.webRProxy);
@@ -33650,7 +33651,19 @@ var load_r_pre = `
   invisible(0)
 }
 
+.webr_pkg_cache <- list()
 .start_app <- function(appName, appDir) {
+  # Uniquely install packages with webr
+  unique_pkgs <- unique(renv::dependencies(appDir, quiet = TRUE)$Package)
+  lapply(unique_pkgs, function(pkg_name) {
+    if (isTRUE(.webr_pkg_cache[[pkg_name]])) return()
+    has_pkg <- nzchar(system.file(package = pkg_name))
+    .webr_pkg_cache[[pkg_name]] <<- has_pkg
+    if (!has_pkg) {
+      webr::install(pkg_name)
+    }
+  })
+
   app <- .shiny_to_httpuv(appDir)
   assign(appName, app, envir = .shiny_app_registry)
   invisible(0)
